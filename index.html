@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Label Lens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;800;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE: clear, calm, accessible — a reading aid, not a diet app.
+   IDEA: the printed Nutrition Facts panel — heavy black rules, Franklin Gothic, white card.
+   PICTURE: the panel itself, rebuilt from your photo; on Scan, a viewfinder framing a label.
+   COLOUR and TYPE: paper white + label black, one tomato-red accent for actions; Libre Franklin 900/400.
+   LAYOUT: 360px single column; bottom tab bar and per-screen action dock in the thumb zone. */
+:root{color-scheme:light dark;
+--bg:light-dark(#f4f3ef,#0f0f0e);--card:light-dark(#fff,#1a1a19);--ink:light-dark(#111,#f3f1ea);--muted:light-dark(#5b5a55,#aaa69c);
+--line:light-dark(#d9d6cd,#33322f);--soft:light-dark(#ebe9e2,#252523);--accent:light-dark(#c9381a,#ff7452);--on-accent:light-dark(#fff,#1a0703);
+--good:light-dark(#1d7a3c,#62d385);--mid:light-dark(#9a5a00,#f0b24f);--bad:light-dark(#b4231a,#ff8070);--hl:light-dark(#ffe7a3,#4b3b05)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Libre Franklin",system-ui,sans-serif;overflow-x:clip}
+button,input,select,textarea{font:inherit;color:inherit}
+.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.app{max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top) + 0px) 16px 0}
+.top{display:flex;align-items:center;gap:10px;padding:12px 0 8px}
+.mark{width:30px;height:30px;border:3px solid var(--ink);display:grid;place-items:center;flex:none}
+.mark i{display:block;width:16px;border-top:3px solid var(--ink);box-shadow:0 5px 0 -1px var(--ink)}
+.top b{font-weight:900;font-size:19px;letter-spacing:-.01em}
+.top small{display:block;color:var(--muted);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+h1{font:900 32px/1.05 "Libre Franklin",sans-serif;margin:8px 0 6px;text-wrap:balance;letter-spacing:-.015em}
+h2.v-t{font:900 24px/1.1 "Libre Franklin",sans-serif;margin:6px 0 10px}
+h3{font-size:17px;font-weight:800;margin:22px 0 8px}
+.lede{color:var(--muted);margin:0 0 14px}
+.view{padding-bottom:calc(150px + env(safe-area-inset-bottom))}
+.btn{min-height:48px;border-radius:12px;border:2px solid var(--ink);background:var(--card);padding:0 16px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;touch-action:manipulation}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn:disabled{opacity:.5}
+.btn.sm{min-height:44px;padding:0 12px;font-size:15px}
+.icon-btn{width:46px;min-width:46px;padding:0}
+.play{padding:0 10px;gap:6px;white-space:nowrap}
+/* scan */
+.frame{position:relative;background:var(--card);border-radius:16px;min-height:300px;padding:18px;overflow:hidden;border:1px solid var(--line)}
+.frame svg.vf{display:block;width:100%;height:270px}
+.shots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.shot{position:relative;aspect-ratio:3/4;border-radius:10px;overflow:hidden;background:var(--soft)}
+.shot img{width:100%;height:100%;object-fit:cover;display:block}
+.shot button{position:absolute;top:6px;right:6px;width:44px;height:44px;border-radius:22px;border:0;background:rgba(0,0,0,.72);color:#fff;font-size:22px;line-height:1;cursor:pointer}
+.shot span{position:absolute;left:8px;bottom:6px;background:rgba(0,0,0,.72);color:#fff;font-size:13px;padding:2px 8px;border-radius:99px}
+.addtile{aspect-ratio:3/4;border:2px dashed var(--line);border-radius:10px;background:none;display:grid;place-content:center;justify-items:center;gap:6px;color:var(--muted);font-weight:700;cursor:pointer}
+.frame.scanning::after{content:"";position:absolute;left:0;right:0;height:3px;background:var(--accent);box-shadow:0 0 18px 4px color-mix(in srgb,var(--accent) 60%,transparent);top:0;animation:sweep 1.8s ease-in-out infinite alternate}
+@keyframes sweep{to{top:calc(100% - 3px)}}
+@media(prefers-reduced-motion:reduce){.frame.scanning::after{animation:none;top:50%}}
+.status{min-height:24px;margin:10px 0 0;font-weight:600}
+.status.err{color:var(--bad)}
+.tips{margin:14px 0 0;padding:0;list-style:none;color:var(--muted);font-size:15px}
+.tips li{padding:4px 0 4px 18px;position:relative}.tips li::before{content:"";position:absolute;left:2px;top:13px;width:7px;height:7px;background:var(--ink);border-radius:2px}
+.cur{display:flex;align-items:center;gap:12px;margin-top:16px;padding:12px 14px;background:var(--card);border-radius:14px;border:1px solid var(--line)}
+.cur>div{flex:1}.cur small{display:block;color:var(--muted);font-size:13px}.cur b{font-weight:800}
+.tag{display:inline-block;margin-left:6px;font-size:13px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--soft);color:var(--muted);vertical-align:2px}
+.note{font-size:14px;color:var(--muted);margin:0 0 10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.linkbtn{background:none;border:0;padding:10px 4px;min-height:44px;font-weight:800;color:var(--accent);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+/* nutrition facts panel */
+.nf{--n:2;font-size:calc(15px * var(--z,1));background:var(--card);border:2px solid var(--ink);padding:.45em .65em .7em;display:grid;grid-template-columns:minmax(6.5em,1fr) repeat(var(--n),auto);column-gap:.6em}
+.nf>*{grid-column:1/-1}
+.nf-h{font:900 2.15em/1 "Libre Franklin",sans-serif;margin:.05em 0 .08em;letter-spacing:-.02em}
+.nf-prod{margin:0 0 .3em;font-weight:600;font-size:.95em}
+.r1{border-top:1px solid var(--ink)}.r2{border-top:.3em solid var(--ink)}.r3{border-top:.7em solid var(--ink);margin-top:.1em}
+.nf-l{margin:.25em 0}.nf-serv{display:flex;justify-content:space-between;gap:1em;font-size:1.12em;font-weight:900;flex-wrap:wrap}
+.nf-row{display:grid;grid-template-columns:subgrid;align-items:baseline;border:0;border-top:1px solid var(--ink);background:none;padding:.32em 0;min-height:2.95em;text-align:left;cursor:pointer;border-radius:0}
+.nf-row:first-of-type{border-top:0}
+.nf-head{min-height:0;cursor:default;font-size:.8em;font-weight:800;align-items:end;padding:.25em 0}
+.nf-head span{text-align:right;line-height:1.2}
+.nf-row .v{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.nf-row .dv{font-weight:800}
+.lv0 .nm{font-weight:800}.lv1 .nm{padding-left:1em}.lv2 .nm{padding-left:2em}
+.nf-row>span{min-width:auto}
+.nf-cal{border-top:.3em solid var(--ink)}.nf-cal .nm{font-weight:900;font-size:1.4em;line-height:1.1}.nf-cal .v:not(.dv){font-weight:900;font-size:1.12em}
+.q{font-style:normal;display:inline-grid;place-items:center;width:1.25em;height:1.25em;margin-left:.35em;border-radius:50%;background:var(--mid);color:var(--card);font-size:.8em;font-weight:900;vertical-align:.1em}
+.nf-foot{font-size:.82em;margin:.5em 0 0;line-height:1.4}
+.nf-extra{margin:.6em 0 0;font-size:.9em;line-height:1.45}
+.nf-extra b{font-weight:800}
+.nf.stackv{display:block}
+.nf.stackv .nf-row{display:flex;flex-wrap:wrap;gap:.1em 1em;width:100%}
+.nf.stackv .nm{flex:1 0 100%}.nf.stackv .nf-head{display:none}
+.nf.stackv .v{text-align:left;white-space:normal}
+.nf.stackv .v::before{content:attr(data-c) ": ";font-weight:400;font-size:.85em}
+.reading{background:var(--hl)!important;box-shadow:0 0 0 3px var(--hl)}
+/* analysis */
+.zoomable{font-size:calc(16px * var(--z,1))}
+.an{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1em}
+.hero{display:flex;align-items:flex-end;gap:.6em;flex-wrap:wrap}
+.hero .big{font:900 clamp(3.2em,14vw,4.2em)/.9 "Libre Franklin",sans-serif;letter-spacing:-.03em}
+.hero .u{font-weight:800;padding-bottom:.2em;line-height:1.2}.hero .u small{display:block;font-weight:400;color:var(--muted)}
+.sub{color:var(--muted);margin:.5em 0 0;font-size:.94em}
+.meter{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:1.1em 0 .4em}
+.meter i{height:.7em;border-radius:3px;background:var(--soft)}
+.meter i.on{background:var(--rc,var(--ink))}
+.verdict{font-weight:800;margin:0}
+.sum{margin:.5em 0 0}
+.split{display:flex;height:1.6em;border-radius:6px;overflow:hidden;margin:.3em 0 .4em;border:1px solid var(--ink)}
+.split div{height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:.2em 1em;font-size:.9em;margin:0;padding:0;list-style:none}
+.legend li{display:flex;align-items:center;gap:.4em}.legend i{width:.8em;height:.8em;border-radius:2px;border:1px solid var(--ink)}
+.c-carb{background:light-dark(#f2c14e,#d9a62e)}.c-fat{background:light-dark(#c9381a,#ff7452)}.c-pro{background:light-dark(#2b5f8a,#6aa8dc)}
+.flags{list-style:none;margin:0;padding:0}
+.flags li{display:flex;align-items:center;gap:.6em;padding:.5em 0;border-top:1px solid var(--line)}
+.flags li:first-child{border-top:0}
+.flags .fn{flex:1;font-weight:600}.flags .fv{color:var(--muted);font-size:.88em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.pill{font-size:.8em;font-weight:800;padding:.15em .6em;border-radius:99px;border:1.5px solid currentColor;white-space:nowrap}
+.g{color:var(--good)}.m{color:var(--mid)}.b{color:var(--bad)}.n{color:var(--muted)}
+.pc{list-style:none;margin:0;padding:0}
+.pc li{display:flex;gap:.55em;padding:.35em 0;align-items:flex-start}
+.pc li svg{width:1.2em;height:1.2em;margin-top:.15em;stroke-width:3}
+.fine{font-size:13px;color:var(--muted);margin:14px 0 0}
+.wait{color:var(--muted);font-style:italic}
+/* docks */
+.dock{position:fixed;left:0;right:0;margin:0 auto;max-width:560px;bottom:calc(64px + env(safe-area-inset-bottom));padding:8px 16px;background:var(--bg);border-top:1px solid var(--line);display:flex;gap:8px;align-items:center;z-index:5}
+.dock .grow{flex:1}
+.zv{min-width:44px;text-align:center;font-weight:800;font-size:14px;font-variant-numeric:tabular-nums}
+.tabs{position:fixed;left:0;right:0;bottom:0;margin:0 auto;max-width:560px;display:grid;grid-template-columns:repeat(5,1fr);background:var(--card);border-top:2px solid var(--ink);padding-bottom:env(safe-area-inset-bottom);z-index:6}
+.tabs button{height:64px;border:0;background:none;display:grid;place-items:center;align-content:center;gap:2px;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer}
+.tabs button[aria-current=page]{color:var(--ink);box-shadow:inset 0 4px 0 var(--accent)}
+/* ask */
+.prof{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:14px}
+.prof summary{list-style:none;padding:12px 14px;min-height:48px;cursor:pointer;display:flex;gap:10px;align-items:center}
+.prof summary::-webkit-details-marker{display:none}
+.prof summary div{flex:1}.prof summary small{display:block;color:var(--muted);font-size:13px;line-height:1.35}
+.prof summary .chev{transition:transform .2s}.prof[open] .chev{transform:rotate(180deg)}
+.pform{padding:0 14px 14px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pform label{display:grid;gap:4px;font-size:14px;font-weight:700}
+.pform .full{grid-column:1/-1}
+input,select,textarea{font-size:16px;min-height:48px;border:2px solid var(--line);border-radius:10px;background:var(--bg);padding:8px 10px;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--ink);outline:none}
+.goals{display:flex;flex-wrap:wrap;gap:6px;border:0;padding:0;margin:0}
+.goals legend{font-size:14px;font-weight:700;margin-bottom:4px}
+.goals input{position:absolute;opacity:0;width:1px;height:1px}
+.goals span{display:inline-flex;align-items:center;min-height:44px;padding:0 12px;border-radius:99px;border:2px solid var(--line);font-size:14px;font-weight:700;cursor:pointer}
+.goals input:checked+span{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.goals input:focus-visible+span{outline:3px solid var(--accent)}
+.needs{grid-column:1/-1;background:var(--soft);border-radius:10px;padding:10px 12px;font-size:14px}
+.msgs{display:grid;gap:12px}
+.msg{max-width:88%;padding:10px 14px;border-radius:16px;line-height:1.5}
+.msg p{margin:0 0 .45em}.msg p:last-child{margin:0}.msg ul{margin:.2em 0 .45em;padding-left:1.15em}
+.msg.u{justify-self:end;background:var(--ink);color:var(--card);border-bottom-right-radius:4px}
+.msg.a{justify-self:start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.msg .say{display:inline-flex;align-items:center;gap:6px;margin:6px 0 -6px -6px;min-height:44px;padding:0 8px;border:0;background:none;color:var(--muted);font-weight:700;font-size:14px;cursor:pointer}
+.msg .say .i{width:18px;height:18px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips button{min-height:44px;padding:6px 14px;border-radius:22px;border:2px solid var(--ink);background:var(--card);font-weight:700;font-size:14px;text-align:left;cursor:pointer}
+.composer textarea{flex:1;resize:none;min-height:48px;max-height:120px;line-height:1.35;padding:12px}
+.mic[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.toast{position:fixed;left:16px;right:16px;margin:0 auto;max-width:528px;bottom:calc(140px + env(safe-area-inset-bottom));background:var(--ink);color:var(--card);padding:12px 14px;border-radius:12px;font-weight:600;z-index:9;font-size:15px}
+/* log */
+.log{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.lg{width:100%;display:flex;align-items:center;gap:14px;min-height:68px;padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:14px;text-align:left;cursor:pointer}
+.lg:active{transform:translateY(1px)}
+.lg.cur-chat{border:2px solid var(--ink)}
+.lg-t{flex:1}.lg-t b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:800;line-height:1.3}.lg-t small{color:var(--muted);font-size:14px}
+.lg-s{display:grid;justify-items:end;gap:6px;flex:none}
+.lg-s b{font:900 26px/1 "Libre Franklin",sans-serif;font-variant-numeric:tabular-nums;color:var(--ink)}
+.lg-s i{display:block;width:64px;height:6px;border-radius:3px;background:linear-gradient(90deg,currentColor var(--w),var(--soft) 0)}
+.lg-s .dots{font-size:26px;line-height:1;color:var(--muted);letter-spacing:2px}
+.empty{background:var(--card);border:1px dashed var(--line);border-radius:14px;padding:20px 16px;color:var(--muted)}
+.empty .btn{margin-top:12px}
+/* sheet */
+.sheet{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet-in{background:var(--card);width:100%;max-width:560px;border-radius:18px 18px 0 0;padding:18px 16px calc(16px + env(safe-area-inset-bottom));display:grid;gap:10px;max-height:85vh;overflow:auto}
+.sheet-in h3{margin:0}.sheet-in label{display:grid;gap:4px;font-weight:700;font-size:14px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <span class="mark" aria-hidden="true"><i></i></span>
+    <div><b>Label Lens</b><small id="hdrName"></small></div>
+  </header>
+
+  <!-- SCAN -->
+  <section id="v-scan" class="view" aria-labelledby="scan-t">
+    <h1 id="scan-t">Read any nutrition label</h1>
+    <p class="lede">Photograph the nutrition table. Add a second photo if it wraps round the pack, or the front for the product name.</p>
+    <div class="frame" id="frame">
+      <svg class="vf" id="vf" viewBox="0 0 320 270" role="img" aria-label="Viewfinder framing a nutrition label">
+        <g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round">
+          <path d="M40 40V14h26M254 14h26v26M280 230v26h-26M66 256H40v-26"/>
+        </g>
+        <g transform="translate(92 32) rotate(-3 68 103)">
+          <rect x="6" y="8" width="136" height="206" fill="#000" opacity=".12" rx="3"/>
+          <rect width="136" height="206" fill="var(--card)" stroke="currentColor" stroke-width="3"/>
+          <rect x="10" y="12" width="92" height="14" fill="currentColor"/>
+          <rect x="10" y="34" width="116" height="2" fill="currentColor"/>
+          <rect x="10" y="42" width="54" height="6" fill="currentColor" opacity=".6"/><rect x="94" y="42" width="32" height="6" fill="currentColor" opacity=".6"/>
+          <rect x="10" y="54" width="116" height="7" fill="currentColor"/>
+          <rect x="10" y="68" width="60" height="12" fill="currentColor"/><rect x="100" y="66" width="26" height="14" fill="currentColor"/>
+          <rect x="10" y="86" width="116" height="4" fill="currentColor"/>
+          <g fill="currentColor" opacity=".7">
+            <rect x="10" y="98" width="58" height="6"/><rect x="108" y="98" width="18" height="6"/>
+            <rect x="18" y="114" width="48" height="6"/><rect x="108" y="114" width="18" height="6"/>
+            <rect x="10" y="130" width="62" height="6"/><rect x="108" y="130" width="18" height="6"/>
+            <rect x="18" y="146" width="44" height="6"/><rect x="108" y="146" width="18" height="6"/>
+            <rect x="26" y="162" width="52" height="6"/><rect x="108" y="162" width="18" height="6"/>
+            <rect x="10" y="178" width="40" height="6"/><rect x="108" y="178" width="18" height="6"/>
+          </g>
+          <rect x="10" y="190" width="116" height="5" fill="currentColor"/>
+        </g>
+        <rect x="40" y="128" width="240" height="3" fill="var(--accent)" opacity=".85"/>
+      </svg>
+      <div class="shots" id="shots" hidden></div>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+    <ul class="tips">
+      <li>Fill the frame with the table, straight on</li>
+      <li>Avoid glare and shadows; flatten curved packs</li>
+      <li>Indian, US, EU and other label styles all work</li>
+    </ul>
+    <div class="cur">
+      <div><small>Now showing</small><b id="curName"></b><span class="tag" id="curTag">Sample</span></div>
+      <button class="btn sm" data-go="label">Open</button>
+    </div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <div class="dock">
+      <button class="btn" id="addBtn"><svg class="i" viewBox="0 0 24 24"><path d="M3 7h3l2-3h8l2 3h3v13H3zM12 10v6M9 13h6"/></svg>Add photos</button>
+      <button class="btn primary grow" id="readBtn">Read label</button>
+    </div>
+  </section>
+
+  <!-- LABEL -->
+  <section id="v-label" class="view" hidden aria-labelledby="label-t">
+    <h2 class="v-t" id="label-t">Nutrition table</h2>
+    <p class="note" id="labelNote"></p>
+    <article class="nf" id="panel" aria-label="Nutrition facts table"></article>
+    <p class="fine">Tap any row to correct a value. <span class="q" aria-hidden="true">?</span> marks values that were hard to read.</p>
+    <div class="dock" data-reader="label">
+      <button class="btn icon-btn" data-z="-1" aria-label="Smaller text">A−</button>
+      <span class="zv" aria-live="polite">100%</span>
+      <button class="btn icon-btn" data-z="1" aria-label="Larger text">A+</button>
+      <button class="btn icon-btn rate" aria-label="Reading speed">1×</button>
+      <button class="btn primary grow play" aria-label="Read aloud"><svg class="i" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg><span>Listen</span></button>
+    </div>
+  </section>
+
+  <!-- ANALYSIS -->
+  <section id="v-analysis" class="view" hidden aria-labelledby="an-t">
+    <h2 class="v-t" id="an-t">Quick analysis</h2>
+    <div class="an zoomable" id="an"></div>
+    <div class="dock" data-reader="analysis">
+      <button class="btn icon-btn" data-z="-1" aria-label="Smaller text">A−</button>
+      <span class="zv" aria-live="polite">100%</span>
+      <button class="btn icon-btn" data-z="1" aria-label="Larger text">A+</button>
+      <button class="btn icon-btn rate" aria-label="Reading speed">1×</button>
+      <button class="btn primary grow play" aria-label="Read aloud"><svg class="i" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg><span>Listen</span></button>
+    </div>
+  </section>
+
+  <!-- ASK -->
+  <section id="v-ask" class="view" hidden aria-labelledby="ask-t">
+    <div style="display:flex;align-items:center;gap:8px"><h2 class="v-t" id="ask-t" style="flex:1">Ask about it</h2>
+      <button class="btn sm" id="newChat" aria-label="Start a new chat"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New</button>
+      <button class="btn sm" id="askZ" aria-label="Change chat text size">Aa <span id="askZv">100%</span></button></div>
+    <details class="prof" id="prof">
+      <summary><div><b>Your details</b><small id="profSum">Optional — add them for answers based on your daily needs.</small></div>
+        <svg class="i chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></summary>
+      <form class="pform" id="pform">
+        <label>Age<input name="age" type="number" inputmode="numeric" min="10" max="110" placeholder="30"></label>
+        <label>Sex<select name="sex"><option value="">Choose</option><option>Female</option><option>Male</option></select></label>
+        <label>Height (cm)<input name="height" type="number" inputmode="decimal" min="100" max="230" placeholder="170"></label>
+        <label>Weight (kg)<input name="weight" type="number" inputmode="decimal" min="25" max="300" placeholder="70"></label>
+        <label class="full">Activity<select name="act">
+          <option value="1.2">Mostly sitting</option><option value="1.375" selected>Light — walks, 1–3 workouts a week</option>
+          <option value="1.55">Moderate — 3–5 workouts a week</option><option value="1.725">Very active — daily hard training</option></select></label>
+        <fieldset class="goals full"><legend>Goal</legend></fieldset>
+        <label class="full">Health notes (optional)<input name="notes" placeholder="e.g. type 2 diabetes, recovering from surgery"></label>
+        <div class="needs" id="needs">Fill in age, sex, height and weight to see your estimated daily needs.</div>
+        <button class="btn primary full" type="submit">Save details</button>
+      </form>
+    </details>
+    <div class="msgs zoomable" id="msgs"></div>
+    <div class="dock composer">
+      <button class="btn icon-btn mic" id="mic" aria-label="Speak your question" aria-pressed="false"><svg class="i" viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      <textarea id="q" rows="1" placeholder="Ask a question…" aria-label="Your question"></textarea>
+      <button class="btn primary icon-btn" id="sendBtn" aria-label="Send"><svg class="i" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-7z"/></svg></button>
+    </div>
+  </section>
+
+  <!-- LOG -->
+  <section id="v-log" class="view" hidden aria-labelledby="log-t">
+    <h2 class="v-t" id="log-t">Evaluation log</h2>
+    <p class="lede">How well you understood each product's nutrients, scored from the questions you asked and the answers you got. Tap a chat to continue it.</p>
+    <ul class="log" id="log"></ul>
+  </section>
+</div>
+
+<nav class="tabs" aria-label="Screens">
+  <button data-v="scan"><svg class="i" viewBox="0 0 24 24"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4M7 12h10"/></svg>Scan</button>
+  <button data-v="label"><svg class="i" viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 7h6M9 11h6M9 15h4"/></svg>Table</button>
+  <button data-v="analysis"><svg class="i" viewBox="0 0 24 24"><path d="M5 20v-8M12 20V5M19 20v-5M3 20h18"/></svg>Analysis</button>
+  <button data-v="ask"><svg class="i" viewBox="0 0 24 24"><path d="M4 5h16v11H10l-6 4z"/></svg>Ask</button>
+  <button data-v="log"><svg class="i" viewBox="0 0 24 24"><path d="M9 3h6v3H9zM7 4.5H5V21h14V4.5h-2M9 13l2 2 4-4"/></svg>Log</button>
+</nav>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sh-t">
+  <div class="sheet-in"><h3 id="sh-t">Correct this row</h3><div id="sh-f" style="display:grid;gap:10px"></div>
+    <div class="row2"><button class="btn" id="sh-x">Cancel</button><button class="btn primary" id="sh-ok">Save</button></div></div>
+</div>
+
+<script>
+{
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+const num=v=>{if(typeof v==='number')return isFinite(v)?v:null;if(v==null||v==='')return null;const n=parseFloat(String(v).replace(',','.'));return isFinite(n)?n:null};
+const fmt=n=>n==null?'—':(Math.abs(n)>=100?Math.round(n).toLocaleString('en-IN'):String(Math.round(n*10)/10));
+const ICON_OK='<svg class="i g" viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>',ICON_NO='<svg class="i b" viewBox="0 0 24 24"><path d="M5 12h14"/></svg>';
+const ICON_SPK='<svg class="i" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>';
+const ICON_STOP='<svg class="i" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>';
+
+const SAMPLE={product:"Oat & Honey Granola Bar",region:"India",is_drink:false,serving_size:"1 bar (40 g)",serving_g:40,servings_per_container:"6",
+ columns:["Per 100 g","Per bar (40 g)"],dv_label:"%RDA per bar",
+ rows:[{name:"Energy",level:0,amounts:["460 kcal","184 kcal"],dv:"9%"},{name:"Protein",level:0,amounts:["8.0 g","3.2 g"],dv:"6%"},
+ {name:"Carbohydrate",level:0,amounts:["66.0 g","26.4 g"],dv:"9%"},{name:"Total sugars",level:1,amounts:["26.0 g","10.4 g"],dv:null},
+ {name:"Added sugars",level:2,amounts:["22.0 g","8.8 g"],dv:"18%"},{name:"Dietary fibre",level:1,amounts:["6.0 g","2.4 g"],dv:"8%"},
+ {name:"Total fat",level:0,amounts:["18.0 g","7.2 g"],dv:"11%"},{name:"Saturated fat",level:1,amounts:["6.0 g","2.4 g"],dv:"11%"},
+ {name:"Trans fat",level:1,amounts:["0.1 g","0.04 g"],dv:null},{name:"Cholesterol",level:0,amounts:["0 mg","0 mg"],dv:"0%"},
+ {name:"Sodium",level:0,amounts:["240 mg","96 mg"],dv:"5%"}],
+ per_100g:{kcal:460,protein:8,carbs:66,sugars:26,added_sugars:22,fiber:6,fat:18,sat_fat:6,trans_fat:.1,chol_mg:0,sodium_mg:240},
+ per_serving:{kcal:184,protein:3.2,carbs:26.4,sugars:10.4,added_sugars:8.8,fiber:2.4,fat:7.2,sat_fat:2.4,trans_fat:.04,chol_mg:0,sodium_mg:96},
+ ingredients:"Rolled oats (38%), sugar, honey (8%), palm oil, rice crisps, glucose syrup, almonds (4%), salt, emulsifier (soy lecithin), natural flavour.",
+ allergens:"Contains oats (gluten), almonds and soy. May contain milk and peanuts.",notes:[]};
+const SAMPLE_AI={rating:2,verdict:"Occasional snack",summary:"184 kcal per bar with plenty of added sugar; the oats bring fibre, but it won't keep you full for long.",
+ pros:["Good fibre: 6 g per 100 g, mostly from oats","Low in salt: 240 mg sodium per 100 g","Portion-sized at 184 kcal per bar"],
+ cons:["High sugar: 26 g per 100 g, 22 g of it added","High fat (18 g/100 g), a third of it saturated","Only 3.2 g protein per bar"]};
+
+let state=store.get('ll.state',null)||{p:SAMPLE,ai:SAMPLE_AI,sample:true};
+const save=()=>store.set('ll.state',state);
+const caps={sample:null,tts:null,dict:null};
+/* Inside Claude the page uses window.claude. On your own site (Vercel) it calls /api/ai, which uses Groq. */
+const HOSTED=!(window.claude&&window.claude.use);
+const b64=blob=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(String(r.result).split(',')[1]);r.onerror=rej;r.readAsDataURL(blob)});
+async function hostedSample(input,opts={}){
+ const messages=typeof input==='string'?[{role:'user',content:input}]:input.map(m=>({role:m.role,content:m.content}));
+ const images=opts.images&&opts.images.length?await Promise.all(opts.images.map(b64)):[];
+ const res=await fetch('/api/ai',{method:'POST',headers:{'content-type':'application/json'},signal:opts.signal,
+  body:JSON.stringify({messages,images,tier:opts.modelTier||'default',stream:!!opts.onText})});
+ if(!res.ok){let m='';try{m=await res.text()}catch(e){}throw{code:res.status===429?'rate_limited':'unavailable',message:m}}
+ if(!opts.onText){const j=await res.json();return{text:j.text||'',truncated:j.stop_reason==='max_tokens'}}
+ const rd=res.body.getReader(),dec=new TextDecoder();let buf='',text='',raw='';
+ for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});let i;
+  while((i=buf.indexOf('\n\n'))>=0){const ev=buf.slice(0,i);buf=buf.slice(i+2);const line=ev.split('\n').find(l=>l.startsWith('data:'));if(!line)continue;
+   const pl=line.slice(5).trim();if(pl==='[DONE]')continue;let d;try{d=JSON.parse(pl)}catch(e){continue}
+   const delta=d.choices&&d.choices[0]&&d.choices[0].delta&&d.choices[0].delta.content;
+   if(delta){raw+=delta;const t=raw.replace(/<think>[\s\S]*?(<\/think>|$)/g,'').trimStart();if(t!==text){text=t;opts.onText({text,delta})}}
+   else if(d.error)throw{code:'unavailable',message:d.error.message||'',text}}}
+ return{text,truncated:false}}
+hostedSample.limits=async()=>({images:2});
+const use=n=>!HOSTED?Promise.resolve(window.claude.use(n)).catch(()=>null):Promise.resolve(n==='sample'?hostedSample:null);
+
+/* ---------- views ---------- */
+const VIEWS=['scan','label','analysis','ask','log'];
+function show(){const v=VIEWS.includes(location.hash.slice(1))?location.hash.slice(1):'scan';
+ VIEWS.forEach(x=>{$('#v-'+x).hidden=x!==v;$(`.tabs [data-v=${x}]`).setAttribute('aria-current',x===v?'page':'false')});
+ stopRead();window.scrollTo(0,0);if(v==='label')fitPanel();if(v==='log')drawLog();}
+const go=v=>{if(location.hash==='#'+v)show();else location.hash=v};
+$$('.tabs button').forEach(b=>b.onclick=()=>go(b.dataset.v));
+document.addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)go(g.dataset.go)});
+addEventListener('hashchange',show);
+
+let toastT;function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,4200)}
+function say(m,err){const s=$('#status');s.textContent=m||'';s.classList.toggle('err',!!err)}
+function errMsg(e,what){const c=e&&e.code;if(e&&e.name==='AbortError'||c==='aborted')return 'Stopped.';
+ if(c==='not_granted')return 'AI access is turned off for this page, so '+what+' can\'t run.';
+ if(c==='rate_limited')return 'The free AI limit was reached — wait a minute and try again.';
+ return 'Something went wrong while '+what+'. Please try again.'}
+
+/* ---------- photos ---------- */
+let shots=[],maxShots=6,readCtrl=null;
+function loadImg(f){return new Promise((res,rej)=>{const u=URL.createObjectURL(f),i=new Image();i.onload=()=>{URL.revokeObjectURL(u);res(i)};i.onerror=()=>{URL.revokeObjectURL(u);rej(new Error('img'))};i.src=u})}
+async function shrink(f){const img=await loadImg(f),M=HOSTED?1600:2000,s=Math.min(1,M/Math.max(img.naturalWidth,img.naturalHeight));
+ const c=document.createElement('canvas');c.width=Math.round(img.naturalWidth*s);c.height=Math.round(img.naturalHeight*s);
+ c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+ return new Promise((res,rej)=>c.toBlob(b=>b?res(b):rej(new Error('blob')),'image/jpeg',HOSTED?.85:.9))}
+$('#addBtn').onclick=()=>$('#file').click();
+$('#file').onchange=async e=>{const fs=[...e.target.files];e.target.value='';
+ for(const f of fs){if(shots.length>=maxShots){toast('Up to '+maxShots+' photos per label.');break}
+  try{const b=await shrink(f);shots.push({blob:b,url:URL.createObjectURL(b)})}catch(err){toast('Couldn\'t open '+f.name+'. Try a JPG or PNG photo.')}}
+ drawShots();if(shots.length)say(shots.length+' photo'+(shots.length>1?'s':'')+' ready. Tap Read label.')};
+function drawShots(){const has=shots.length>0;$('#vf').hidden=has;$('#shots').hidden=!has;
+ $('#shots').innerHTML=shots.map((s,i)=>`<div class="shot"><img src="${s.url}" alt="Label photo ${i+1}"><span>${i+1}</span><button data-rm="${i}" aria-label="Remove photo ${i+1}">×</button></div>`).join('')
+  +(shots.length<maxShots?`<button class="addtile" data-add><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add another</button>`:'');}
+$('#shots').onclick=e=>{const r=e.target.closest('[data-rm]');if(r){const i=+r.dataset.rm;URL.revokeObjectURL(shots[i].url);shots.splice(i,1);drawShots();say('');return}
+ if(e.target.closest('[data-add]'))$('#file').click()};
+
+const EXTRACT=`You are reading photos of a packaged food's nutrition label (all photos show the SAME product; combine them). Transcribe the nutrition table exactly as printed — never invent numbers.
+Return ONLY a JSON object:
+{"is_label":true|false,"product":string|null,"region":"India"|"US"|"EU/UK"|"other"|null,"is_drink":boolean,
+"serving_size":string|null,"serving_g":number|null,"servings_per_container":string|null,
+"columns":[amount column headings as printed, e.g. "Per 100 g","Per serving (30 g)"; one entry if the label has a single amount column, e.g. "Per serving"],
+"dv_label":heading of the percent column, e.g. "% Daily Value" or "%RDA per serve", or null,
+"rows":[{"name":as printed,"level":0 main nutrient | 1 sub-nutrient (e.g. saturated fat, sugars, fibre under carbohydrate) | 2 sub-sub (e.g. added sugars under total sugars),"amounts":[one string per column incl. unit, e.g. "12.5 g", or "" if blank],"dv":"9%" or null,"unsure":true if any digit is hard to read}],
+"per_100g":{"kcal","fat","sat_fat","trans_fat","chol_mg","sodium_mg","carbs","fiber","sugars","added_sugars","protein"} numbers or null,
+"per_serving":same keys,
+"ingredients":string|null,"allergens":string|null,"notes":[short notes on anything unreadable, cut off, or assumed]}
+Rules: rows in printed order, including vitamins/minerals. Grams for macros, mg for cholesterol and sodium. Convert kJ to kcal (÷4.184) and salt to sodium (salt g × 400 = sodium mg) ONLY in per_100g/per_serving. If only one basis is printed and the serving weight is known, compute the other and add a note. If the photos show no nutrition table, set is_label false and explain in notes.`;
+
+function normalize(p){p.columns=Array.isArray(p.columns)&&p.columns.length?p.columns.map(String):['Amount'];
+ p.rows=(p.rows||[]).filter(r=>r&&r.name).map(r=>{const a=Array.isArray(r.amounts)?r.amounts:[r.amount];
+  return {name:String(r.name),level:Math.max(0,Math.min(2,+r.level||0)),amounts:p.columns.map((_,j)=>a[j]==null?'':String(a[j])),dv:r.dv?String(r.dv):null,unsure:!!r.unsure}});
+ for(const k of['per_100g','per_serving']){const o=p[k]||{};p[k]={};for(const x in o)p[k][x]=num(o[x])}
+ p.serving_g=num(p.serving_g);p.notes=Array.isArray(p.notes)?p.notes:[];return p}
+
+async function askJSON(S,input,opts){if(typeof S.json==='function'){try{return await S.json(input,opts)}catch(e){if(e&&(e.code||e.name==='AbortError'))throw e}}
+ const r=await S(input,opts),t=r.text||'',a=t.indexOf('{'),b=t.lastIndexOf('}');if(a<0||b<a)throw{code:'parse'};return JSON.parse(t.slice(a,b+1))}
+
+$('#readBtn').onclick=async()=>{
+ if(readCtrl){readCtrl.abort();return}
+ if(!shots.length){say('Add at least one photo of the label first.');$('#file').click();return}
+ const S=caps.sample;if(!S){say('Label reading needs the AI service, which isn\'t available right now.',true);return}
+ readCtrl=new AbortController();$('#frame').classList.add('scanning');$('#readBtn').textContent='Stop';$('#addBtn').disabled=true;
+ say('Reading the label… this usually takes 15–40 seconds.');
+ try{const out=await askJSON(S,EXTRACT,{images:shots.map(s=>s.blob),modelTier:'complex',signal:readCtrl.signal});
+  if(!out||out.is_label===false||!(out.rows&&out.rows.length)){say((out&&out.notes&&out.notes[0])||'I couldn\'t find a nutrition table. Try a sharper, closer photo.',true);return}
+  state={p:normalize(out),ai:null,sample:false,chatId:null};chat=[];save();renderAll();say('Done — table ready.');go('label');analyze();
+ }catch(e){say(errMsg(e,'reading the label'),true)}
+ finally{readCtrl=null;$('#frame').classList.remove('scanning');$('#readBtn').textContent='Read label';$('#addBtn').disabled=false}};
+
+/* ---------- facts & flags ---------- */
+const scale=(o,f)=>{const r={};for(const k in o)r[k]=o[k]==null?null:o[k]*f;return r};
+const hasN=o=>o&&Object.values(o).some(v=>typeof v==='number');
+function facts(p){const g=p.serving_g,s=p.per_serving||{},h=p.per_100g||{};
+ const per100=hasN(h)?h:(g&&hasN(s)?scale(s,100/g):null),perS=hasN(s)?s:(g&&hasN(h)?scale(h,g/100):null);
+ const B=per100||perS||{},flags=[];
+ const kc=num(B.kcal)??((num(B.carbs)||0)*4+(num(B.protein)||0)*4+(num(B.fat)||0)*9);
+ const split=(B.carbs!=null||B.fat!=null||B.protein!=null)?(()=>{const c=(B.carbs||0)*4,f=(B.fat||0)*9,pr=(B.protein||0)*4,t=c+f+pr;return t?{c:c/t*100,f:f/t*100,p:pr/t*100}:null})():null;
+ const unit=per100?(p.is_drink?'/100 ml':'/100 g'):'/serving',d=p.is_drink?.5:1;
+ const bad=(k,name,lo,hi,dv,u='g')=>{const v=num(B[k]);if(v==null)return;let L;
+  if(per100)L=v<=lo*d?'low':v>hi*d?'high':'med';else{const pc=v/dv*100;L=pc<=5?'low':pc>=20?'high':'med'}
+  flags.push({k,name,v,u,L,good:false})};
+ bad('fat','Fat',3,17.5,78);bad('sat_fat','Saturated fat',1.5,5,20);
+ if(B.sugars!=null)bad('sugars','Sugars',5,22.5,50);else bad('added_sugars','Added sugars',5,22.5,50);
+ bad('sodium_mg','Sodium (salt)',120,600,2300,'mg');
+ const fb=num(B.fiber);if(fb!=null)flags.push({k:'fiber',name:'Fibre',v:fb,u:'g',L:per100?(fb>=6?'high':fb>=3?'med':'low'):(fb/28>=.2?'high':fb/28>=.1?'med':'low'),good:true});
+ const pr=num(B.protein);if(pr!=null&&kc){const pe=pr*4/kc*100;flags.push({k:'protein',name:'Protein',v:pr,u:'g',L:pe>=20?'high':pe>=12?'med':'low',good:true,pe})}
+ let r=3;for(const f of flags){if(!f.good&&f.L==='high')r-=f.k==='fat'?.5:1;if(f.good&&f.L==='high')r+=1}
+ return{per100,perS,split,flags,unit,rating:Math.max(1,Math.min(5,Math.round(r)))}}
+const lvl=f=>f.good?{high:['High','g'],med:['Source','g'],low:['Low','n']}[f.L]:{high:['High','b'],med:['Medium','m'],low:['Low','g']}[f.L];
+function localPC(F){const pros=[],cons=[];for(const f of F.flags){const t=`${fmt(f.v)} ${f.u}${F.unit}`;
+ if(f.good&&f.L!=='low')pros.push(`${f.L==='high'?'High':'Contains'} ${f.name.toLowerCase()}: ${t}`);
+ else if(!f.good&&f.L==='low')pros.push(`Low ${f.name.toLowerCase()}: ${t}`);
+ else if(!f.good&&f.L==='high')cons.push(`High ${f.name.toLowerCase()}: ${t}`);
+ else if(f.good&&f.L==='low'&&f.k==='protein')cons.push(`Low protein: ${t}`)}return{pros:pros.slice(0,3),cons:cons.slice(0,3)}}
+
+/* ---------- table ---------- */
+const sp=s=>String(s??'').replace(/(\d),(\d{3})/g,'$1$2').replace(/(\d)\s*kcal\b/gi,'$1 calories').replace(/(\d)\s*kj\b/gi,'$1 kilojoules')
+ .replace(/(\d)\s*mg\b/gi,'$1 milligrams').replace(/(\d)\s*(mcg|µg|μg)/gi,'$1 micrograms').replace(/(\d)\s*g\b/gi,'$1 grams').replace(/(\d)\s*ml\b/gi,'$1 millilitres')
+ .replace(/%/g,' percent').replace(/</g,'less than ');
+const isEnergy=n=>/^(energy|calories|kcal)/i.test(n.trim());
+let labelLines=[];
+function renderLabel(){const p=state.p,cols=p.columns,hasDv=p.rows.some(r=>r.dv),n=cols.length+(hasDv?1:0),dvL=p.dv_label||'% Daily Value';
+ let h=`<h3 class="nf-h" data-rid="t">Nutrition Facts</h3>`+(p.product?`<p class="nf-prod">${esc(p.product)}</p>`:'')+'<div class="r1"></div>';
+ if(p.servings_per_container)h+=`<p class="nf-l" data-rid="srv">${esc(p.servings_per_container)} servings per container</p>`;
+ if(p.serving_size)h+=`<p class="nf-l nf-serv" data-rid="ss"><span>Serving size</span><span>${esc(p.serving_size)}</span></p>`;
+ h+='<div class="r3"></div>';
+ if(n>1||cols[0]!=='Amount')h+=`<div class="nf-row nf-head" aria-hidden="true"><span></span>${cols.map(c=>`<span>${esc(c)}</span>`).join('')}${hasDv?`<span>${esc(dvL)}</span>`:''}</div>`;
+ h+=p.rows.map((r,i)=>`<button class="nf-row lv${r.level}${isEnergy(r.name)?' nf-cal':''}" data-rid="r${i}" data-i="${i}" aria-label="${esc(r.name+': '+cols.map((c,j)=>r.amounts[j]?c+' '+r.amounts[j]:'').filter(Boolean).join(', ')+(r.dv?', '+r.dv+' '+dvL:'')+(r.unsure?', hard to read':'')+'. Tap to edit')}">
+  <span class="nm">${esc(r.name)}${r.unsure?'<i class="q">?</i>':''}</span>${cols.map((c,j)=>`<span class="v" data-c="${esc(c)}">${esc(r.amounts[j]||'—')}</span>`).join('')}${hasDv?`<span class="v dv" data-c="${esc(dvL)}">${esc(r.dv||'')}</span>`:''}</button>`).join('');
+ h+='<div class="r2"></div>';
+ if(hasDv)h+=`<p class="nf-foot" data-rid="foot">The % column shows how much one serving adds toward a typical 2,000 kcal day. 5% or less is low; 20% or more is high.</p>`;
+ if(p.allergens)h+=`<p class="nf-extra" data-rid="alg"><b>Allergens:</b> ${esc(p.allergens)}</p>`;
+ if(p.ingredients)h+=`<p class="nf-extra" data-rid="ing"><b>Ingredients:</b> ${esc(p.ingredients)}</p>`;
+ if(p.notes.length)h+=`<p class="nf-extra" data-rid="nts"><b>Reading notes:</b> ${esc(p.notes.join(' '))}</p>`;
+ const P=$('#panel');P.style.setProperty('--n',n);P.innerHTML=h;fitPanel();
+ $('#labelNote').innerHTML=state.sample?'Sample label shown. <button class="linkbtn" data-go="scan">Scan your own</button>':'Read from your photos — check anything marked ?';
+ labelLines=[{id:'t',text:'Nutrition facts'+(p.product?' for '+p.product:'')+'.'}];
+ if(p.serving_size)labelLines.push({id:'ss',text:'Serving size: '+sp(p.serving_size)+'.'});
+ if(p.servings_per_container)labelLines.push({id:'srv',text:sp(p.servings_per_container)+' servings per container.'});
+ p.rows.forEach((r,i)=>{const parts=cols.map((c,j)=>r.amounts[j]?(cols.length>1?sp(c)+', ':'')+sp(r.amounts[j]):'').filter(Boolean);
+  labelLines.push({id:'r'+i,text:`${r.name}: ${parts.join('; ')}${r.dv?'; '+sp(r.dv)+' of daily value':''}${r.unsure?'. This value was hard to read':''}.`})});
+ if(p.allergens)labelLines.push({id:'alg',text:'Allergens: '+p.allergens});
+ if(p.ingredients)labelLines.push({id:'ing',text:'Ingredients: '+p.ingredients.slice(0,1500)});}
+function fitPanel(){const P=$('#panel');if(!P||P.offsetParent===null)return;
+ if(!CSS.supports('grid-template-columns','subgrid')){P.classList.add('stackv');return}
+ P.classList.remove('stackv');const nm=P.querySelector('.nf-row:not(.nf-head) .nm'),fs=parseFloat(getComputedStyle(P).fontSize);
+ if(P.scrollWidth>P.clientWidth||(nm&&nm.getBoundingClientRect().width<fs*5.5))P.classList.add('stackv')}
+new ResizeObserver(()=>fitPanel()).observe(document.body);
+
+/* edit sheet */
+let editI=-1;
+$('#panel').onclick=e=>{const b=e.target.closest('.nf-row[data-i]');if(!b)return;editI=+b.dataset.i;const r=state.p.rows[editI],c=state.p.columns;
+ $('#sh-f').innerHTML=`<label>Nutrient<input id="e-n" value="${esc(r.name)}"></label>`+c.map((x,j)=>`<label>${esc(x)}<input id="e-a${j}" value="${esc(r.amounts[j])}"></label>`).join('')
+  +`<label>${esc(state.p.dv_label||'% Daily Value')}<input id="e-dv" value="${esc(r.dv||'')}"></label>`;
+ $('#sheet').hidden=false;$('#e-a0')?.focus()};
+const closeSheet=()=>{$('#sheet').hidden=true};
+$('#sh-x').onclick=closeSheet;$('#sheet').onclick=e=>{if(e.target.id==='sheet')closeSheet()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#sheet').hidden)closeSheet()});
+function keyOf(n){n=n.toLowerCase();return /energy|calor/.test(n)?'kcal':/saturat/.test(n)?'sat_fat':/trans/.test(n)?'trans_fat':/cholest/.test(n)?'chol_mg':
+ /sodium/.test(n)?'sodium_mg':/salt/.test(n)?'salt':/fib/.test(n)?'fiber':/added/.test(n)?'added_sugars':/sugar/.test(n)?'sugars':/carb/.test(n)?'carbs':/protein/.test(n)?'protein':/fat/.test(n)?'fat':null}
+function syncRow(p,r){const k=keyOf(r.name);if(!k)return;p.columns.forEach((c,j)=>{const a=r.amounts[j]||'';let v=num(a.replace(/[^\d.,-]/g,''));if(v==null)return;
+ const tgt=/100/.test(c)?'per_100g':(p.columns.length===1||/serv|per|portion|bar|pack|piece|cup/i.test(c))?'per_serving':null;if(!tgt)return;
+ let key=k;if(k==='kcal'&&/kj/i.test(a)&&!/kcal/i.test(a))v/=4.184;if(k==='sodium_mg'&&/\d\s*g\b/i.test(a))v*=1000;if(k==='salt'){key='sodium_mg';v*=/mg/i.test(a)?.4:400}
+ if(k==='chol_mg'&&/\d\s*g\b/i.test(a))v*=1000;p[tgt][key]=v})}
+$('#sh-ok').onclick=()=>{const r=state.p.rows[editI];r.name=$('#e-n').value.trim()||r.name;r.amounts=state.p.columns.map((_,j)=>$('#e-a'+j).value.trim());
+ r.dv=$('#e-dv').value.trim()||null;r.unsure=false;syncRow(state.p,r);state.ai=state.ai?{...state.ai,stale:true}:null;save();if(state.chatId&&chats[state.chatId]){chats[state.chatId].product=state.p;persist(state.chatId)}closeSheet();renderAll();toast('Row updated.')};
+
+/* ---------- analysis ---------- */
+let aiBusy=false,aiErr='',anLines=[];
+const RC=['','var(--bad)','var(--bad)','var(--mid)','var(--good)','var(--good)'];
+function renderAnalysis(){const p=state.p,F=facts(p),S=F.perS,H=F.per100,ai=state.ai;
+ const kS=S&&num(S.kcal),kH=H&&num(H.kcal),spc=num(p.servings_per_container);
+ const rating=ai&&ai.rating?Math.max(1,Math.min(5,Math.round(ai.rating))):F.rating;
+ const verdict=ai&&ai.verdict||['','Eat rarely','Occasional food','Fine in moderation','Good choice','Great everyday choice'][rating];
+ const pc=ai&&ai.pros?{pros:ai.pros.slice(0,3),cons:(ai.cons||[]).slice(0,3)}:localPC(F);
+ const big=kS!=null?kS:kH,bigU=kS!=null?'kcal per serving':'kcal per 100 g';
+ let h=`<div class="hero" data-rid="a-cal"><span class="big">${big!=null?fmt(big):'—'}</span><span class="u">${bigU}${kS!=null&&p.serving_size?`<small>${esc(p.serving_size)}</small>`:''}</span></div>`;
+ const subs=[];if(kS!=null&&kH!=null)subs.push(fmt(kH)+' kcal per 100 g');if(kS!=null&&spc)subs.push('about '+fmt(kS*spc)+' kcal in the whole pack');
+ if(subs.length)h+=`<p class="sub">${subs.join(' · ')}</p>`;
+ h+=`<div class="meter" style="--rc:${RC[rating]}" role="img" aria-label="Health rating ${rating} of 5">${[1,2,3,4,5].map(i=>`<i class="${i<=rating?'on':''}"></i>`).join('')}</div>
+  <p class="verdict" data-rid="a-rate">${rating} of 5 · ${esc(verdict)}</p>`;
+ if(ai&&ai.summary)h+=`<p class="sum" data-rid="a-sum">${esc(ai.summary)}</p>`;
+ if(F.split)h+=`<h3>Where the calories come from</h3><div class="split" data-rid="a-split" role="img" aria-label="Calories: carbs ${Math.round(F.split.c)}%, fat ${Math.round(F.split.f)}%, protein ${Math.round(F.split.p)}%">
+  <div class="c-carb" style="width:${F.split.c}%"></div><div class="c-fat" style="width:${F.split.f}%"></div><div class="c-pro" style="width:${F.split.p}%"></div></div>
+  <ul class="legend"><li><i class="c-carb"></i>Carbs ${Math.round(F.split.c)}%</li><li><i class="c-fat"></i>Fat ${Math.round(F.split.f)}%</li><li><i class="c-pro"></i>Protein ${Math.round(F.split.p)}%</li></ul>`;
+ if(F.flags.length)h+=`<h3>Key nutrients <small style="font-weight:400;color:var(--muted)">${F.unit.replace('/','per ')}</small></h3><ul class="flags" data-rid="a-flags">${F.flags.map(f=>{const[w,c]=lvl(f);
+  return `<li><span class="fn">${f.name}</span><span class="fv">${fmt(f.v)} ${f.u}</span><span class="pill ${c}">${w}</span></li>`}).join('')}</ul>`;
+ if(aiBusy)h+=`<h3>Pros and cons</h3><p class="wait">Weighing up the pros and cons…</p>`;
+ else{h+=`<h3>Pros</h3><ul class="pc">${pc.pros.length?pc.pros.map((x,i)=>`<li data-rid="a-p${i}">${ICON_OK}<span>${esc(x)}</span></li>`).join(''):'<li class="n">Nothing stands out.</li>'}</ul>
+  <h3>Cons</h3><ul class="pc">${pc.cons.length?pc.cons.map((x,i)=>`<li data-rid="a-c${i}">${ICON_NO}<span>${esc(x)}</span></li>`).join(''):'<li class="n">Nothing stands out.</li>'}</ul>`;
+  if(caps.sample&&!state.sample&&(!ai||ai.stale))h+=`<p class="note">${aiErr?esc(aiErr):ai&&ai.stale?'Values changed since this analysis.':'Showing a quick rule-based read.'} <button class="linkbtn" id="reAn">${ai?'Refresh analysis':'Get the AI\'s take'}</button></p>`}
+ h+=`<p class="fine">An educated guess from the label alone, using common traffic-light thresholds — not medical advice.${state.sample?' Sample product.':''}</p>`;
+ $('#an').innerHTML=h;const rb=$('#reAn');if(rb)rb.onclick=analyze;
+ anLines=[];if(big!=null)anLines.push({id:'a-cal',text:`${fmt(big)} ${bigU}${subs.length?'; '+subs.join('; '):''}.`});
+ anLines.push({id:'a-rate',text:`Health rating ${rating} out of 5: ${verdict}.`});if(ai&&ai.summary)anLines.push({id:'a-sum',text:ai.summary});
+ if(F.split)anLines.push({id:'a-split',text:`Calories come ${Math.round(F.split.c)} percent from carbs, ${Math.round(F.split.f)} percent from fat and ${Math.round(F.split.p)} percent from protein.`});
+ if(F.flags.length)anLines.push({id:'a-flags',text:F.flags.map(f=>`${f.name}: ${lvl(f)[0]}, ${sp(fmt(f.v)+' '+f.u)}`).join('. ')+'.'});
+ if(!aiBusy){pc.pros.forEach((x,i)=>anLines.push({id:'a-p'+i,text:(i?'':'Pros. ')+sp(x)}));pc.cons.forEach((x,i)=>anLines.push({id:'a-c'+i,text:(i?'':'Cons. ')+sp(x)}))}}
+async function analyze(){const S=caps.sample;if(!S||aiBusy)return;aiBusy=true;aiErr='';renderAnalysis();const F=facts(state.p);
+ const prompt=`You assess packaged food from its nutrition label. Label: ${JSON.stringify(compact(state.p))}
+Computed (per ${F.per100?'100 g/ml':'serving'}): ${F.flags.map(f=>`${f.name} ${fmt(f.v)}${f.u} = ${lvl(f)[0]}`).join('; ')}${F.split?`; calories from carbs ${Math.round(F.split.c)}%, fat ${Math.round(F.split.f)}%, protein ${Math.round(F.split.p)}%`:''}.
+Return ONLY JSON: {"rating":integer 1-5 (1 eat rarely, 3 fine in moderation, 5 great everyday food),"verdict":"2-4 words","summary":"one plain sentence, max 22 words, include calories per serving","pros":["up to 3, each max 12 words, cite numbers"],"cons":["up to 3, each max 12 words, cite numbers"]}
+Judge it for what it evidently is (e.g. biscuit, protein bar, juice) using the numbers and ingredients. Only list real pros. Don't invent facts.`;
+ try{const r=await askJSON(S,prompt,{modelTier:'default'});state.ai={rating:num(r.rating),verdict:String(r.verdict||''),summary:String(r.summary||''),pros:(r.pros||[]).map(String),cons:(r.cons||[]).map(String)};save()}
+ catch(e){aiErr=errMsg(e,'writing the analysis')}finally{aiBusy=false;renderAnalysis()}}
+function compact(p){return{product:p.product,serving:p.serving_size,servings:p.servings_per_container,columns:p.columns,dv:p.dv_label,
+ rows:p.rows.map(r=>[r.name,...r.amounts,r.dv||''].join(' | ')),per_100g:p.per_100g,per_serving:p.per_serving,ingredients:p.ingredients,allergens:p.allergens}}
+
+/* ---------- reading aloud & zoom ---------- */
+const R={on:false,btn:null,scope:null,rate:1,tok:0};const RATES=[1,1.25,.8];
+function mark(id){if(!R.scope)return;R.scope.querySelectorAll('.reading').forEach(x=>x.classList.remove('reading'));
+ const el=id&&R.scope.querySelector(`[data-rid="${id}"]`);if(el){el.classList.add('reading');el.scrollIntoView({block:'center',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}}
+function setPlay(btn,on){if(!btn)return;if(btn.classList.contains('say')){btn.innerHTML=(on?ICON_STOP+'Stop':ICON_SPK+'Listen');return}
+ btn.innerHTML=(on?ICON_STOP:ICON_SPK)+`<span>${on?'Stop':'Listen'}</span>`;btn.setAttribute('aria-pressed',on)}
+function done(){const b=R.btn;R.on=false;R.btn=null;setPlay(b,false);mark(null);R.scope=null}
+function stopRead(){if(!R.on)return;R.tok++;try{caps.tts&&caps.tts.stop()}catch(e){}try{speechSynthesis.cancel()}catch(e){}done()}
+function readOut(lines,scope,btn){if(R.on){const same=R.btn===btn;stopRead();if(same)return}
+ if(!lines.length)return;const tok=++R.tok;R.on=true;R.btn=btn;R.scope=scope;setPlay(btn,true);const t=caps.tts;
+ if(t){Promise.resolve().then(()=>t.speak(lines.map(l=>({text:l.text,id:l.id})),{rate:R.rate})).catch(e=>{if(e&&e.code==='not_granted')toast('Read aloud was turned off for this page.');else if(e&&e.code==='rate_limited')toast('Read aloud is busy — try again shortly.')})
+  .finally(()=>{if(tok===R.tok)done()});return}
+ if('speechSynthesis' in window){const syn=speechSynthesis;syn.cancel();let i=0;
+  const next=()=>{if(tok!==R.tok)return;if(i>=lines.length){done();return}const l=lines[i++],u=new SpeechSynthesisUtterance(l.text);u.rate=R.rate;
+   u.onstart=()=>{if(tok===R.tok)mark(l.id)};u.onend=next;u.onerror=ev=>{if(ev.error==='not-allowed'){toast('Your browser blocked speech. Tap Read aloud again.');if(tok===R.tok)done()}else if(ev.error!=='interrupted'&&ev.error!=='canceled')next()};syn.speak(u)};
+  next();return}
+ toast('Read aloud isn\'t supported in this browser.');done()}
+const Z=Object.assign({label:1,analysis:1,ask:1},store.get('ll.zoom',{})),ZS=[1,1.25,1.5,1.75,2,2.5];
+function applyZoom(){$('#panel').style.setProperty('--z',Z.label);$('#an').style.setProperty('--z',Z.analysis);$('#msgs').style.setProperty('--z',Z.ask);
+ $$('[data-reader]').forEach(d=>d.querySelector('.zv').textContent=Math.round(Z[d.dataset.reader]*100)+'%');$('#askZv').textContent=Math.round(Z.ask*100)+'%';
+ store.set('ll.zoom',Z);requestAnimationFrame(fitPanel)}
+$$('[data-reader]').forEach(d=>{const k=d.dataset.reader;
+ d.querySelectorAll('[data-z]').forEach(b=>b.onclick=()=>{const i=ZS.indexOf(Z[k]),j=Math.max(0,Math.min(ZS.length-1,(i<0?0:i)+ +b.dataset.z));Z[k]=ZS[j];applyZoom()});
+ d.querySelector('.rate').onclick=e=>{R.rate=RATES[(RATES.indexOf(R.rate)+1)%RATES.length];$$('.rate').forEach(b=>b.textContent=R.rate+'×');
+  try{if(R.on&&caps.tts&&caps.tts.setRate)caps.tts.setRate(R.rate)}catch(err){}};
+ d.querySelector('.play').onclick=e=>readOut(k==='label'?labelLines:anLines,k==='label'?$('#panel'):$('#an'),e.currentTarget)});
+$('#askZ').onclick=()=>{const i=ZS.indexOf(Z.ask);Z.ask=ZS[(i+1)%4];applyZoom()};
+
+/* ---------- profile ---------- */
+const GOALS=['General health','Fat loss','Muscle building','Health recovery','Blood sugar control','Maintain weight'];
+$('.goals').insertAdjacentHTML('beforeend',GOALS.map(g=>`<label><input type="radio" name="goal" value="${g}"><span>${g}</span></label>`).join(''));
+let prof=store.get('ll.prof',{});
+function needs(f){const a=num(f.age),h=num(f.height),w=num(f.weight);if(!(a>0&&h>0&&w>0&&f.sex))return null;
+ const bmr=10*w+6.25*h-5*a+(f.sex==='Male'?5:-161),tdee=bmr*(num(f.act)||1.375),adj={'Fat loss':-.18,'Muscle building':.1}[f.goal]||0,
+ pk={'Fat loss':1.6,'Muscle building':1.8,'Health recovery':1.3}[f.goal]||1;return{bmr:Math.round(bmr),tdee:Math.round(tdee),target:Math.round(tdee*(1+adj)/10)*10,protein:Math.round(w*pk)}}
+function fillForm(){const F=$('#pform');for(const k of['age','sex','height','weight','act','notes'])if(prof[k]!=null)F.elements[k].value=prof[k];
+ if(prof.goal){const r=[...F.elements.goal].find(x=>x.value===prof.goal);if(r)r.checked=true}}
+function readForm(){const F=$('#pform'),o={};for(const k of['age','sex','height','weight','act','notes'])o[k]=F.elements[k].value.trim();o.goal=(F.querySelector('[name=goal]:checked')||{}).value||'';return o}
+function drawNeeds(f){const n=needs(f);$('#needs').innerHTML=n?`Estimated daily needs: <b>~${n.target.toLocaleString('en-IN')} kcal</b> and <b>~${n.protein} g protein</b>${f.goal?' for '+esc(f.goal.toLowerCase()):''}. (Maintenance ~${n.tdee.toLocaleString('en-IN')} kcal; Mifflin–St Jeor estimate.)`:'Fill in age, sex, height and weight to see your estimated daily needs.';
+ const s=[f.sex,f.age&&f.age+' y',f.weight&&f.weight+' kg',f.goal].filter(Boolean).join(' · ');
+ $('#profSum').textContent=s?s+(n?` · ~${n.target.toLocaleString('en-IN')} kcal/day`:''):'Optional — add them for answers based on your daily needs.'}
+$('#pform').oninput=()=>drawNeeds(readForm());
+$('#pform').onsubmit=e=>{e.preventDefault();prof=readForm();store.set('ll.prof',prof);drawNeeds(prof);$('#prof').open=false;drawChat();toast('Details saved.')};
+
+/* ---------- chat records (per viewer) ---------- */
+let chats=store.get('ll.chats',{}),DB=null,UID=null;const wq={},evalBusy={},evalAgain={};
+const chatsCol=()=>DB.collection('data/users/'+UID);
+const clone=o=>JSON.parse(JSON.stringify(o));
+function persist(id){store.set('ll.chats',chats);if(!DB||!chats[id])return;const body=clone(chats[id]);
+ wq[id]=(wq[id]||Promise.resolve()).then(()=>chatsCol().doc('chat_'+id).set(body)).catch(e=>{if(e&&e.code==='quota_exceeded')toast('Your saved chats are full — this one is kept on this device only.')})}
+function ensureChat(){if(state.chatId&&chats[state.chatId])return chats[state.chatId];
+ const id=Date.now().toString(36)+Math.random().toString(36).slice(2,7),t=Date.now();
+ chats[id]={id,title:state.p.product||'Unnamed product',product:state.p,ai:state.ai,sample:!!state.sample,messages:[],createdAt:t,updatedAt:t,score:null,scoredLen:0};
+ state.chatId=id;save();return chats[id]}
+async function initDB(){const[d,u]=await Promise.all([use('db'),use('user')]);if(!d||!u)return;let id=null;try{id=await u.id()}catch(e){}if(!id)return;DB=d;UID=id;
+ try{const snap=await Promise.race([chatsCol().get(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),10000))]);const seen=new Set();let changed=false;
+  for(const doc of snap.docs){if(!doc.id.startsWith('chat_'))continue;const r=doc.data();if(!r||!r.id)continue;seen.add(r.id);const loc=chats[r.id];
+   if(!loc||(r.updatedAt||0)>(loc.updatedAt||0)||((r.updatedAt||0)===(loc.updatedAt||0)&&r.score!=null&&loc.score==null)){chats[r.id]=clone(r);changed=true}
+   else if((loc.updatedAt||0)>(r.updatedAt||0)||(loc.score!=null&&r.score==null))persist(r.id)}
+  for(const k in chats)if(!seen.has(k))persist(k);
+  store.set('ll.chats',chats);
+  if(changed){if(state.chatId&&chats[state.chatId]&&!chatBusy)chat=chats[state.chatId].messages.slice();drawChat();drawLog()}
+  catchUp()}catch(e){}}
+const realMsgs=r=>(r.messages||[]).filter(m=>!m.err);
+function EVAL(r,msgs){return `You evaluate how well a person understood the nutrients in a packaged food, judging only from their chat with a nutrition assistant.
+PRODUCT LABEL: ${JSON.stringify(compact(r.product||{}))}
+CHAT:
+${msgs.map(m=>(m.role==='user'?'USER: ':'ASSISTANT: ')+m.content).join('\n')}
+Score their understanding of THIS product's nutrients from 0 to 100. Weigh: how many of the label's important nutrients they engaged with (calories, sugars, fats, sodium, fibre, protein and anything high or notable); how specific and deep their questions were; follow-ups that build on earlier answers, apply them to their own situation, or show correct reasoning; whether the answers they received were clear and complete enough to understand; and any misconception that stayed uncorrected. One or two generic questions should score low (10-35); broad, well-answered, building questions score high (75-100).
+Return ONLY JSON: {"score": integer 0-100}`}
+async function evaluate(id){const S=caps.sample,r=chats[id];if(!S||!r)return;if(evalBusy[id]){evalAgain[id]=true;return}
+ const msgs=realMsgs(r);if(!msgs.some(m=>m.role==='assistant'))return;evalBusy[id]=true;drawLog();
+ try{const out=await askJSON(S,EVAL(r,msgs),{modelTier:'default'});const s=Math.round(num(out&&out.score));
+  if(s>=0&&s<=100&&chats[id]){chats[id].score=s;chats[id].scoredLen=msgs.length;persist(id)}}catch(e){}
+ finally{evalBusy[id]=false;drawLog();if(evalAgain[id]){evalAgain[id]=false;evaluate(id)}}}
+function catchUp(){if(!caps.sample)return;Object.values(chats).filter(r=>realMsgs(r).length>(r.scoredLen||0)).sort((a,b)=>b.updatedAt-a.updatedAt).slice(0,3).forEach(r=>evaluate(r.id))}
+function ago(t){const s=(Date.now()-t)/1000;if(s<60)return 'just now';const m=s/60;if(m<60)return Math.floor(m)+' min ago';const h=m/60;if(h<24)return Math.floor(h)+' h ago';
+ const d=h/24;if(d<2)return 'yesterday';if(d<7)return Math.floor(d)+' days ago';if(d<30)return Math.floor(d/7)+' wk ago';if(d<365)return Math.floor(d/30)+' mo ago';return Math.floor(d/365)+' y ago'}
+function drawLog(){const L=$('#log');if(!L)return;const list=Object.values(chats).filter(r=>realMsgs(r).length).sort((a,b)=>b.updatedAt-a.updatedAt);
+ if(!list.length){L.innerHTML=`<li class="empty">No chats yet. Ask a question about a product and it will show up here with your understanding score.<br><button class="btn primary" data-go="ask">Start a chat</button></li>`;return}
+ const nth={},cnt={};Object.values(chats).filter(r=>realMsgs(r).length).sort((a,b)=>a.createdAt-b.createdAt).forEach(r=>{cnt[r.title]=(cnt[r.title]||0)+1;nth[r.id]=cnt[r.title]});
+ L.innerHTML=list.map(r=>{const name=r.title+(cnt[r.title]>1?' · chat '+nth[r.id]:''),busy=evalBusy[r.id]&&r.score==null,s=r.score,c=s==null?'n':s>=70?'g':s>=40?'m':'b';
+  const lab=`${name}${r.sample?' (sample)':''}. ${s==null?(busy?'Scoring':'Not scored yet'):'Understanding '+s+'%'}. Last continued ${ago(r.updatedAt)}.`;
+  return `<li><button class="lg${r.id===state.chatId?' cur-chat':''}" data-open="${esc(r.id)}" aria-label="${esc(lab)}"><span class="lg-t"><b>${esc(name)}</b><small>${ago(r.updatedAt)}</small></span>
+   <span class="lg-s ${c}">${s==null?`<span class="dots" aria-hidden="true">${busy?'…':'—'}</span>`:`<b>${s}%</b><i style="--w:${s}%"></i>`}</span></button></li>`}).join('')}
+$('#log').onclick=e=>{const b=e.target.closest('[data-open]');if(!b||chatBusy)return;const r=chats[b.dataset.open];if(!r)return;
+ stopDict();state={p:normalize(clone(r.product)),ai:r.ai?clone(r.ai):null,sample:!!r.sample,chatId:r.id};chat=r.messages.slice();save();renderAll();go('ask');
+ requestAnimationFrame(()=>{const l=$$('#msgs .msg');l.length&&l[l.length-1].scrollIntoView({block:'end'})})};
+setInterval(()=>{if(!$('#v-log').hidden)drawLog()},60000);
+$('#newChat').onclick=()=>{if(chatBusy)return;stopDict();state.chatId=null;chat=[];save();drawChat();toast('New chat started.')};
+
+/* ---------- chat ---------- */
+let chat=(state.chatId&&chats[state.chatId])?chats[state.chatId].messages.slice():[],chatBusy=false,chatCtrl=null;
+const md=t=>{let h='',ul=false;for(const raw of esc(t).split('\n')){const l=raw.trim(),m=l.match(/^([-•*]|\d+[.)])\s+(.*)/),il=s=>s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+ if(m){if(!ul){h+='<ul>';ul=true}h+=`<li>${il(m[2])}</li>`}else{if(ul){h+='</ul>';ul=false}if(l)h+=`<p>${il(l)}</p>`}}return h+(ul?'</ul>':'')};
+const plain=t=>t.replace(/\*\*/g,'').replace(/^\s*[-•*]\s+/gm,'').trim();
+function suggestions(){const g=prof.goal&&prof.goal!=='General health'?prof.goal.toLowerCase():null;
+ return[g?`Does this fit my ${g} goal?`:'Is this healthy to eat every day?','How many servings can I have in a day?','What does saturated fat do in the body?',
+  needs(prof)?'How much of my daily needs is one serving?':'Is this okay for someone with diabetes?','Which nutrient here should I watch most?']}
+function drawChat(){const name=state.p.product||'this product';
+ let h=`<div class="msg a"><p>Ask me anything about <b>${esc(name)}</b> — what a nutrient does, how it fits your day, or your goal.${needs(prof)?'':' Add your details above for personalised answers.'}</p></div>`;
+ h+=chat.map((m,i)=>`<div class="msg ${m.role==='user'?'u':'a'}">${m.role==='user'?`<p>${esc(m.content)}</p>`:md(m.content)+`<button class="say" data-say="${i}">${ICON_SPK}Listen</button>`}</div>`).join('');
+ if(!chat.length)h+=`<div class="chips">${suggestions().map(s=>`<button data-sug>${esc(s)}</button>`).join('')}</div>`;
+ h+=`<p class="fine">General guidance, not medical advice. For conditions, pregnancy or medication, check with a doctor or dietitian.</p>`;
+ $('#msgs').innerHTML=h}
+$('#msgs').onclick=e=>{const s=e.target.closest('[data-sug]');if(s){send(s.textContent);return}
+ const b=e.target.closest('[data-say]');if(b){const m=chat[+b.dataset.say];readOut(plain(m.content).split(/\n+/).filter(Boolean).map(t=>({text:t})),null,b)}};
+function context(){const n=needs(prof),F=facts(state.p);
+ return `You are the nutrition guide inside "Label Lens", a phone app that reads food labels. Answer the user's questions about this product and about nutrition in general.
+PRODUCT LABEL${state.sample?' (demo sample product)':' (read from the user\'s photos)'}: ${JSON.stringify(compact(state.p))}
+QUICK FLAGS (${F.unit}): ${F.flags.map(f=>`${f.name} ${fmt(f.v)}${f.u} ${lvl(f)[0]}`).join('; ')||'none'}
+USER PROFILE: ${prof.age||prof.weight||prof.goal?JSON.stringify(prof):'not given'}
+ESTIMATED DAILY NEEDS: ${n?`~${n.target} kcal/day (maintenance ${n.tdee}, BMR ${n.bmr}), protein ~${n.protein} g/day`:'unknown'}
+RULES: Lead with a direct answer in 1-2 sentences, then at most 4 short "- " bullets. Stay under 120 words unless asked to go deeper. Use the label's real numbers and, when the profile is known, relate them to the user's daily needs (e.g. % of their calories or protein). If a question needs details the user hasn't given (age, weight, goal, condition), give the general answer and say which details would sharpen it. Explain what nutrients do in the body in plain language. For medical conditions, pregnancy, kidney disease, medication or eating disorders, give general guidance and suggest a doctor or registered dietitian; never diagnose or encourage extreme restriction. Plain text with **bold** and "- " bullets only. Reply in the language the user writes in.`}
+async function send(text){text=(text||'').trim();if(!text)return;if(chatBusy){chatCtrl&&chatCtrl.abort();return}
+ const S=caps.sample;if(!S){toast('Chat needs the AI service, which isn\'t available right now.');return}
+ stopDict();const rec=ensureChat();chat.push({role:'user',content:text,t:Date.now()});$('#q').value='';grow();drawChat();
+ const bub=document.createElement('div');bub.className='msg a';bub.innerHTML='<p class="wait">Thinking…</p>';$('#msgs').insertBefore(bub,$('#msgs .fine'));
+ bub.scrollIntoView({block:'end'});chatBusy=true;chatCtrl=new AbortController();setSend();
+ try{const hist=[];for(const m of chat.filter(m=>!m.err).slice(-12)){const last=hist[hist.length-1];if(last&&last.role===m.role)last.content+='\n\n'+m.content;else hist.push({role:m.role,content:m.content})}
+  while(hist.length&&hist[0].role==='assistant')hist.shift();
+  const msgs=[{role:'user',content:context()},{role:'assistant',content:'Understood. I have the label and the profile.'},...hist];
+  const r=await S(msgs,{onText:({text})=>{bub.innerHTML=md(text)},signal:chatCtrl.signal,cache:false,modelTier:'default'});
+  chat.push({role:'assistant',content:r.text||'(no answer)',t:Date.now()})}
+ catch(e){chat.push({role:'assistant',content:(e&&e.text?e.text+'\n\n':'')+errMsg(e,'answering'),t:Date.now(),err:true})}
+ finally{rec.messages=chat.slice(-80);rec.updatedAt=Date.now();rec.product=state.p;rec.ai=state.ai;rec.title=state.p.product||rec.title;persist(rec.id);evaluate(rec.id);drawLog();chatBusy=false;chatCtrl=null;setSend();drawChat();const l=$$('#msgs .msg');l[l.length-1]&&l[l.length-1].scrollIntoView({block:'end'})}}
+function setSend(){$('#sendBtn').innerHTML=chatBusy?ICON_STOP:'<svg class="i" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-7z"/></svg>';$('#sendBtn').setAttribute('aria-label',chatBusy?'Stop answer':'Send')}
+$('#sendBtn').onclick=()=>chatBusy?chatCtrl&&chatCtrl.abort():send($('#q').value);
+const grow=()=>{const q=$('#q');q.style.height='auto';q.style.height=Math.min(120,q.scrollHeight+4)+'px'};
+$('#q').addEventListener('input',grow);
+$('#q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&matchMedia('(pointer:fine)').matches){e.preventDefault();send($('#q').value)}});
+
+/* dictation */
+let dictOn=false,dictBase='',sr=null;const TIP='Voice input isn\'t available here — tap the microphone on your phone\'s keyboard to dictate instead.';
+const setMic=on=>{dictOn=on;$('#mic').setAttribute('aria-pressed',on);$('#q').placeholder=on?'Listening…':'Ask a question…'};
+function stopDict(){if(!dictOn)return;try{caps.dict?caps.dict.stop().catch(()=>{}):sr&&sr.stop()}catch(e){}setMic(false)}
+$('#mic').onclick=()=>{if(dictOn){stopDict();return}stopRead();dictBase=$('#q').value.trim();const d=caps.dict;
+ if(d){d.start().catch(e=>{setMic(false);toast(e&&e.code==='not_granted'?'Microphone access was declined — you can still type.':TIP)});return}
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){toast(TIP);return}
+ try{sr=new SR();sr.interimResults=true;sr.continuous=false;sr.lang=navigator.language||'en-IN';
+  sr.onresult=ev=>{let fin='',part='';for(const r of ev.results)(r.isFinal?(fin+=r[0].transcript):(part+=r[0].transcript));$('#q').value=(dictBase+' '+fin+part).trim();grow()};
+  sr.onerror=()=>{setMic(false);toast(TIP)};sr.onend=()=>setMic(false);sr.start();setMic(true)}catch(e){setMic(false);toast(TIP)}};
+
+/* ---------- boot ---------- */
+function renderAll(){const n=state.p.product||'Unnamed product';$('#curName').textContent=n;$('#curTag').hidden=!state.sample;
+ $('#hdrName').textContent=n+(state.sample?' · sample':'');renderLabel();renderAnalysis();drawChat()}
+fillForm();drawNeeds(prof);applyZoom();renderAll();drawShots();$('#vf').hidden=false;$('#shots').hidden=true;show();
+use('sample').then(async s=>{caps.sample=s;if(!s){$('#readBtn').disabled=false;return}
+ try{const L=s.limits?await s.limits():null;if(L&&!L.images)toast('Photo reading isn\'t available in this view.');else if(L&&typeof L.images==='number')maxShots=Math.max(1,Math.min(6,L.images))}catch(e){}renderAnalysis();catchUp()});
+initDB();drawLog();
+use('tts').then(t=>{caps.tts=t;if(t&&t.onLine)t.onLine(({id})=>{if(R.on)mark(id)})});
+use('dictation').then(d=>{caps.dict=d;if(!d)return;
+ d.onPartial(({text})=>{$('#q').value=(dictBase+' '+text).trim();grow()});
+ d.onFinal(({text})=>{dictBase=(dictBase+' '+text).trim();$('#q').value=dictBase;grow()});
+ d.onState(({state:s})=>setMic(s==='listening'))});
+}
+</script>
+</body>
+</html>
