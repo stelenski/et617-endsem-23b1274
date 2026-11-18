@@ -1,0 +1,6 @@
+{
+  "name": "et617-23b1274",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20" }
+}
